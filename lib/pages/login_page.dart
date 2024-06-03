@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:weathernews_app/cubit/settings/settings_cubit.dart';
 import 'package:weathernews_app/pages/weathernews_page.dart';
 import 'package:weathernews_app/services/bigdata_cloud_services.dart';
 
@@ -15,8 +15,6 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
-  String _city = "";
-  String _name = "";
   bool _nameValid = true;
   bool _isLoading = false;
 
@@ -27,23 +25,12 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _loadPreferences() async {
-    final prefs = await SharedPreferences.getInstance();
+    final settingsCubit = context.read<SettingsCubit>();
+    final state = settingsCubit.state;
     setState(() {
-      _city = prefs.getString('city') ?? "";
-      _name = prefs.getString('name') ?? "";
-      _cityController.text = _city;
-      _nameController.text = _name;
+      _cityController.text = state.city;
+      _nameController.text = state.name;
     });
-  }
-
-  Future<void> _saveCityName(String city) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('city', city);
-  }
-
-  Future<void> _saveUserName(String name) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('name', name);
   }
 
   Future<void> _getCurrentLocation() async {
@@ -83,6 +70,7 @@ class _LoginPageState extends State<LoginPage> {
       }
 
       Position position = await Geolocator.getCurrentPosition();
+      print('Current position: ${position.latitude}, ${position.longitude}');
       await _getCityNameFromCoordinates(position.latitude, position.longitude);
     } catch (e) {
       print(e);
@@ -93,18 +81,18 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  Future<void> _getCityNameFromCoordinates(double latitude, double longitude) async {
-    try {
-      final bigDataCloudService = Provider.of<BigDataCloudService>(context, listen: false);
+Future<void> _getCityNameFromCoordinates(double latitude, double longitude) async {
+  try {
+    final bigDataCloudService = Provider.of<BigDataCloudService>(context, listen: false);
       final response = await bigDataCloudService.getCityName(latitude, longitude, 'en');
+      print('BigDataCloud response: ${response.body}');
 
       if (response.isSuccessful) {
         final data = response.body;
         setState(() {
-          _city = data!['city'] ?? "";
-          _cityController.text = _city;
+          _cityController.text = data?['city'] ?? "";
         });
-        await _saveCityName(_city);
+        context.read<SettingsCubit>().updateCity(_cityController.text);
       } else {
         throw Exception('Failed to load city name');
       }
@@ -113,34 +101,17 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  void _updateCityName() {
-    setState(() {
-      _city = _cityController.text;
-    });
-    _saveCityName(_city);
-  }
-
-  void _updateUserName() {
-    setState(() {
-      _name = _nameController.text;
-    });
-    _saveUserName(_name);
-  }
-
   void _continue() {
     if (_nameController.text.isEmpty) {
       setState(() {
         _nameValid = false;
       });
     } else {
-      _updateUserName();
-      if (_cityController.text.isNotEmpty) {
-        _updateCityName();
-      }
-     // Navigate to the next page or perform any other action
+      context.read<SettingsCubit>().updateName(_nameController.text);
+      context.read<SettingsCubit>().updateCity(_cityController.text);
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const WeatherNewsPage()), // Placeholder for the next page
+        MaterialPageRoute(builder: (context) => const WeatherNewsPage()),
       );
     }
   }
@@ -149,7 +120,12 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title:const Center(child:  Text('Weather & News App',style: TextStyle(fontSize: 24,fontWeight: FontWeight.bold),)),
+        title: const Center(
+          child: Text(
+            'Weather & News App',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -162,7 +138,6 @@ class _LoginPageState extends State<LoginPage> {
                 errorText: _nameValid ? null : 'Name is required',
               ),
               onChanged: (value) {
-                _updateUserName();
                 setState(() {
                   _nameValid = true;
                 });
@@ -174,9 +149,6 @@ class _LoginPageState extends State<LoginPage> {
               decoration: const InputDecoration(
                 labelText: 'Enter City Name (optional)',
               ),
-              onChanged: (value) {
-                _updateCityName();
-              },
             ),
             const SizedBox(height: 16),
             _isLoading
@@ -190,10 +162,6 @@ class _LoginPageState extends State<LoginPage> {
               onPressed: _continue,
               child: const Text('Continue'),
             ),
-            const SizedBox(height: 32),
-            Text('Name: $_name'),
-            const SizedBox(height: 8),
-            Text('City: $_city'),
           ],
         ),
       ),

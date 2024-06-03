@@ -17,7 +17,7 @@ class _WeatherNewsPageState extends State<WeatherNewsPage> {
   final List<Widget> _screens = [
     const WeatherInfo(),
     const AllNewsScreen(),
-    const FavoriteNewsScreen(),
+    const FavouriteNewsScreen(),
     const SavedNewsScreen(),
   ];
 

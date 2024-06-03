@@ -1,4 +1,5 @@
 import 'package:chopper/chopper.dart';
+
 part 'bigdata_cloud_services.chopper.dart';
 
 @ChopperApi()
@@ -12,7 +13,7 @@ abstract class BigDataCloudService extends ChopperService {
 
   static BigDataCloudService create() {
     final client = ChopperClient(
-      baseUrl: Uri.parse('https://api.bigdatacloud.net/data'),
+      baseUrl: Uri.parse('https://api.bigdatacloud.net/data/'), // Ensure the trailing slash
       services: [_$BigDataCloudService()],
       converter: const JsonConverter(),
       interceptors: [HttpLoggingInterceptor()],
